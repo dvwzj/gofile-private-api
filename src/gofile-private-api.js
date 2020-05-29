@@ -7,6 +7,7 @@ import userAgents from 'user-agents'
 import FileUploadEmitter from './file-upload-emitter'
 import _ from 'lodash'
 import FormData from 'form-data'
+import moment from 'moment-timezone'
 
 class GofilePrivateAPI {
   constructor (apiServer) {
@@ -131,12 +132,30 @@ class GofilePrivateAPI {
                               .get(
                                 file,
                                 {
-                                  responseType: 'arraybuffer'
+                                  responseType: 'stream'
                                 }
                               )
                               .then((res2) => {
-                                this.cache[file] = res2.data
-                                resolve2(`${name}/${_.size(res2.data)}`)
+                                const start = moment()
+                                let buffer = []
+                                res2.data.on('data', (chunk) => {
+                                  buffer.push(chunk)
+                                  const current = _.size(Buffer.concat(buffer))
+                                  this.fileUploadEmitter.emit('progress.download', {
+                                    current,
+                                    total,
+                                    percent: total === 0 ? -1 : (current / total) * 100,
+                                    elapsed: moment().diff(start)
+                                  })
+                                })
+                                res2.data.on('error', (e) => {
+                                  reject2(e)
+                                })
+                                res2.data.on('end', () => {
+                                  const blob = Buffer.concat(buffer)
+                                  this.cache[file] = blob
+                                  resolve2(`${name}/${_.size(blob)}`)
+                                })
                               })
                               .catch(reject2)
                           }
@@ -228,11 +247,31 @@ class GofilePrivateAPI {
                         .get(
                           file,
                           {
-                            responseType: 'arraybuffer'
+                            responseType: 'stream'
                           }
                         )
                         .then((res) => {
-                          return res.data
+                          return new Promise((resolve, reject) => {
+                            const total = res.headers['content-length'] || 0
+                            const start = moment()
+                            let buffer = []
+                            res.data.on('data', (chunk) => {
+                              buffer.push(chunk)
+                              const current = _.size(Buffer.concat(buffer))
+                              this.fileUploadEmitter.emit('progress.download', {
+                                current,
+                                total,
+                                percent: total === 0 ? -1 : (current / total) * 100,
+                                elapsed: moment().diff(start)
+                              })
+                            })
+                            res.data.on('error', (e) => {
+                              reject(e)
+                            })
+                            res.data.on('end', () => {
+                              resolve(Buffer.concat(buffer))
+                            })
+                          })
                         })
                         .catch((e) => {
                           this.fileUploadEmitter.emit('error', e)
@@ -251,49 +290,74 @@ class GofilePrivateAPI {
               })
             formData.append('category', 'file')
             formData.append('comments', 0)
+            const total = formData.getLengthSync()
+            const start = moment()
+            this.fileUploadEmitter.emit('progress.upload', {
+              current: 0,
+              total,
+              percent: -1,
+              elapsed: moment().diff(start)
+            })
             this
               .axios
               .post(
                 `https://${res.data.data.server}.gofile.io/upload`,
                 formData,
                 {
-                  headers: formData.getHeaders()
+                  headers: formData.getHeaders(),
+                  responseType: 'stream'
                 }
               )
               .then((res2) => {
-                if (res2.data.status === 'ok') {
-                  this
-                    .axios
-                    .get(
-                      `https://${this.apiServer}.gofile.io/getServer?c=${res2.data.data.code}`
-                    )
-                    .then((res3) => {
-                      if (res3.data.status === 'ok') {
-                        this
-                          .axios
-                          .get(
-                            `https://${res3.data.data.server}.gofile.io/getUpload?c=${res2.data.data.code}`
-                          )
-                          .then((res4) => {
-                            if (res4.data.status === 'ok') {
-                              this.fileUploadEmitter.emit('completed', res4.data.data)
-                            } else {
-                              this.fileUploadEmitter.emit('error', 'getUpload: ' + res4.data.status)
-                            }
-                          })
-                          .catch((e) => {
-                            this.fileUploadEmitter.emit('error', e)
-                          })
-                      } else {
-                        this.fileUploadEmitter.emit('error', 'getServer: ' + res3.data.status)
-                      }
-                    })
-                    .catch((e) => {
-                      this.fileUploadEmitter.emit('error', e)
-                    })
-                } else {
-                  this.fileUploadEmitter.emit('error', 'upload: ' + res2.data.status)
-                }
+                const buffer = []
+                res2.data.on('data', (chunk) => {
+                  buffer.push(chunk)
+                })
+                res2.data.on('error', (e) => {
+                  console.error(e)
+                })
+                res2.data.on('end', () => {
+                  this.fileUploadEmitter.emit('progress.upload', {
+                    current: total,
+                    total,
+                    percent: 100,
+                    elapsed: moment().diff(start)
+                  })
+                  const $res2 = JSON.parse(Buffer.concat(buffer).toString('utf8'))
+                  if ($res2.status === 'ok') {
+                    this
+                      .axios
+                      .get(
+                        `https://${this.apiServer}.gofile.io/getServer?c=${$res2.data.code}`
+                      )
+                      .then((res3) => {
+                        if (res3.data.status === 'ok') {
+                          this
+                            .axios
+                            .get(
+                              `https://${res3.data.data.server}.gofile.io/getUpload?c=${$res2.data.code}`
+                            )
+                            .then((res4) => {
+                              if (res4.data.status === 'ok') {
+                                this.fileUploadEmitter.emit('completed', res4.data.data)
+                              } else {
+                                this.fileUploadEmitter.emit('error', 'getUpload: ' + res4.data.status)
+                              }
+                            })
+                            .catch((e) => {
+                              this.fileUploadEmitter.emit('error', e)
+                            })
+                        } else {
+                          this.fileUploadEmitter.emit('error', 'getServer: ' + res3.data.status)
+                        }
+                      })
+                      .catch((e) => {
+                        this.fileUploadEmitter.emit('error', e)
+                      })
+                  } else {
+                    this.fileUploadEmitter.emit('error', 'upload: ' + $res2.data.status)
+                  }
+                })
               })
               .catch((e) => {
                 this.fileUploadEmitter.emit('error', e)
