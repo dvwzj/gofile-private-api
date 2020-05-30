@@ -178,7 +178,16 @@ class GofilePrivateAPI {
           .then((results) => {
             return _.filter(
               _.map(results, (found, i) => {
-                return found ? uploads[i] : false
+                if (found) {
+                  const data = uploads[i]
+                  data.files = _.map(data.files, (file) => {
+                    file.link = `https://${data.server}.gofile.io/download/${data.code}/${file.name}`
+                    return file
+                  })
+                  return data
+                } else {
+                  return false
+                }
               })
             )
           })
@@ -325,6 +334,7 @@ class GofilePrivateAPI {
                   })
                   const $res2 = JSON.parse(Buffer.concat(buffer).toString('utf8'))
                   if ($res2.status === 'ok') {
+                    let data = $res2.data
                     this
                       .axios
                       .get(
@@ -339,7 +349,15 @@ class GofilePrivateAPI {
                             )
                             .then((res4) => {
                               if (res4.data.status === 'ok') {
-                                this.fileUploadEmitter.emit('completed', res4.data.data)
+                                data = _.merge(
+                                  data,
+                                  res4.data.data
+                                )
+                                data.files = _.map(data.files, (file) => {
+                                  file.name = _.last(file.link.split('?')[0].split('/'))
+                                  return file
+                                })
+                                this.fileUploadEmitter.emit('completed', data)
                               } else {
                                 this.fileUploadEmitter.emit('error', 'getUpload: ' + res4.data.status)
                               }
