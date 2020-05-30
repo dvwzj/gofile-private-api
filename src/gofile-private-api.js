@@ -195,9 +195,7 @@ class GofilePrivateAPI {
             this.fileUploadEmitter.emit('error', e)
             return []
           })
-        if (_.size(exists)) {
-          this.fileUploadEmitter.emit('exists', { files, force })
-        }
+        this.fileUploadEmitter.emit('exists', exists)
         resolve(exists)
       } catch (e) {
         reject(e)
