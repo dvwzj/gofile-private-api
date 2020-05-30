@@ -136,6 +136,7 @@ class GofilePrivateAPI {
                                 }
                               )
                               .then((res2) => {
+                                const total = res2.headers['content-length'] || 0
                                 const start = moment()
                                 let buffer = []
                                 res2.data.on('data', (chunk) => {
