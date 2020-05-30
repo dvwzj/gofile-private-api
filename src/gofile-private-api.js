@@ -210,7 +210,9 @@ class GofilePrivateAPI {
       } else {
         if (!_.isArray(files)) files = [ files ]
         force = force === undefined ? false : force
-        this.fileUploadEmitter.emit('start', { files, force })
+        process.nextTick(() => {
+          this.fileUploadEmitter.emit('start', { files, force })
+        })
         if (force === true) {
           this.forceUpload(files)
         } else {
