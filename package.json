@@ -21,8 +21,6 @@
     "@babel/runtime": "^7.10.1",
     "axios": "^0.19.2",
     "axios-cookiejar-support": "^1.0.0",
-    "ffmpeg-progress-wrapper": "^1.1.6",
-    "ffmpeg-static": "^4.2.2",
     "form-data": "^3.0.0",
     "get-video-duration": "^3.0.0-beta.1",
     "lodash": "^4.17.15",
