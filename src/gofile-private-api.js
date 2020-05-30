@@ -119,7 +119,7 @@ class GofilePrivateAPI {
                 return new Promise(async (resolve2, reject2) => {
                   if (_.isString(file)) {
                     if (file.match(/^https?:\/\//)) {
-                      const name = _.last(file.split('?')[0].split('/'))
+                      const name = _.last(_.trim(file.split('?')[0], '/').split('/'))
                       this
                         .axios
                         .head(file)
@@ -291,7 +291,7 @@ class GofilePrivateAPI {
                           this.fileUploadEmitter.emit('error', e)
                         })
                     }
-                    name = _.last(file.split('?')[0].split('/'))
+                    name = _.last(_.trim(file.split('?')[0], '/').split('/'))
                   } else {
                     data = fs.readFileSync(file)
                     name = path.basename(file)
@@ -359,7 +359,7 @@ class GofilePrivateAPI {
                                   res4.data.data
                                 )
                                 data.files = _.map(data.files, (file) => {
-                                  file.name = _.last(file.link.split('?')[0].split('/'))
+                                  file.name = _.last(_.trim(file.link.split('?')[0], '/').split('/'))
                                   return file
                                 })
                                 this.fileUploadEmitter.emit('completed', data)
