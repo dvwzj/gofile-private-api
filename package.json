@@ -19,7 +19,7 @@
   "homepage": "https://github.com/dvwzj/gofile-private-api#readme",
   "dependencies": {
     "@babel/runtime": "^7.10.1",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "axios-cookiejar-support": "^1.0.0",
     "form-data": "^3.0.0",
     "get-video-duration": "^3.0.0-beta.1",
